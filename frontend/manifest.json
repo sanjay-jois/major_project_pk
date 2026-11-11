@@ -1,0 +1,22 @@
+{
+  "name": "PK-ML Clinical Dashboard",
+  "short_name": "PK-ML",
+  "description": "Grey-Box Pharmacokinetic Modeling & Clinical Analytics Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060b14",
+  "theme_color": "#060b14",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

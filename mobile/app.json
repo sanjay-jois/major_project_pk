@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "PK-ML Clinical",
+    "slug": "pk-ml-clinical-dashboard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#060b14",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#060b14"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.clinical.pkml"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#060b14"
+      },
+      "package": "com.clinical.pkml"
+    }
+  }
+}

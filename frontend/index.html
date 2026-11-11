@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#060b14" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>PK-ML Clinical Dashboard — Grey-Box Pharmacokinetic Modeling & Clinical Analytics</title>
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <!-- Chart.js 4.4 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ================= Sidebar Navigation ================= -->
+  <nav id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand-badge">
+        <div class="brand-icon">PK</div>
+        <div>
+          <div class="brand-title">PK-ML Suite</div>
+          <div class="brand-subtitle">Clinical Analytics</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="nav-links">
+      <li>
+        <a class="nav-item active" data-view="view-overview" id="nav-overview">
+          <span class="nav-icon">📊</span>
+          <span class="nav-text">Overview</span>
+          <span class="nav-badge">Live</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="view-dataset" id="nav-dataset">
+          <span class="nav-icon">📁</span>
+          <span class="nav-text">Dataset Explorer</span>
+          <span class="nav-badge">CSV</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="view-trajectory" id="nav-trajectory">
+          <span class="nav-icon">📈</span>
+          <span class="nav-text">TCI Trajectory</span>
+          <span class="nav-badge">TCI</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="view-leaderboard" id="nav-leaderboard">
+          <span class="nav-icon">🏆</span>
+          <span class="nav-text">Model Leaderboard</span>
+          <span class="nav-badge">8 ML</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="view-validation" id="nav-validation">
+          <span class="nav-icon">🛡️</span>
+          <span class="nav-text">Validation & Uncertainty</span>
+          <span class="nav-badge">95%</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item" data-view="view-greybox" id="nav-greybox">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-text">Grey-Box PK Model</span>
+          <span class="nav-badge">ODE</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div>Remifentanil Mammillary ODE</div>
+      <div style="color:var(--cyan-primary); margin-top:2px;">Minto (1997) × ML Residual</div>
+    </div>
+  </nav>
+
+  <!-- ================= Main Container ================= -->
+  <div id="main-container">
+
+    <!-- Top Navigation Bar -->
+    <header id="top-bar">
+      <div class="top-bar-left">
+        <button id="btn-toggle-sidebar" class="toggle-btn" title="Toggle Sidebar">☰</button>
+        <div class="page-heading">
+          <h1 id="current-page-title">Overview Dashboard</h1>
+          <p id="current-page-desc">Pharmacokinetic modeling summary, cohort distributions, and baseline comparison</p>
+        </div>
+      </div>
+
+      <div class="top-bar-right">
+        <div class="status-indicator">
+          <span id="status-dot" class="status-dot"></span>
+          <span id="status-text">Backend Online</span>
+        </div>
+        <div class="pill-badge" id="active-drug-badge">Remifentanil IV</div>
+        <div class="pill-badge" id="active-engine-badge">Minto 3-Comp</div>
+      </div>
+    </header>
+
+    <!-- Medical Research Prototype Disclaimer Banner -->
+    <aside class="disclaimer-banner">
+      <span style="font-size:14px;">⚖️</span>
+      <span><strong>Research Prototype Disclaimer:</strong> For research and educational use only. Predictions are not intended to guide clinical treatment or dosing decisions.</span>
+    </aside>
+
+    <!-- Scrollable Viewport -->
+    <main class="view-viewport">
+
+      <!-- ================= PAGE A: OVERVIEW DASHBOARD ================= -->
+      <section id="view-overview" class="page-section active">
+        <!-- 6 Summary Stat Cards -->
+        <div class="grid-4">
+          <div class="card stat-card">
+            <span class="stat-label">Total Observations</span>
+            <div class="stat-value cyan" id="stat-total-obs">—</div>
+            <span class="stat-desc">Blood sample concentration events</span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Unique Cohorts</span>
+            <div class="stat-value" id="stat-total-subjects">—</div>
+            <span class="stat-desc">Volunteer & clinical subjects</span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Target Drug</span>
+            <div class="stat-value purple" id="stat-drug-name">Remifentanil</div>
+            <span class="stat-desc">Ultra-short acting opioid (μg/min)</span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Available Models</span>
+            <div class="stat-value emerald" id="stat-available-models">8 ML + 1 ODE</div>
+            <span class="stat-desc">Tree ensembles, SVR, Bayesian Ridge</span>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card stat-card">
+            <span class="stat-label">Top Benchmark Performer</span>
+            <div class="stat-value cyan" id="stat-best-model-name">—</div>
+            <div style="display:flex; gap:16px; margin-top:4px;">
+              <span id="stat-best-mae" style="font-size:14px; font-weight:700; color:var(--text-main);">MAE: —</span>
+              <span id="stat-best-r2" style="font-size:13px; color:var(--text-secondary);">R² —</span>
+            </div>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Data Quality & Integrity</span>
+            <div class="stat-value emerald" id="stat-missing-status">0 Duplicates</div>
+            <span class="stat-desc" id="stat-lloq">LLOQ: 0.1 ng/mL | Clean NONMEM format</span>
+          </div>
+        </div>
+
+        <!-- 4 Overview Charts -->
+        <div class="grid-2">
+          <div class="card chart-card">
+            <div class="card-title-group">
+              <span class="card-title">📈 Concentration vs. Time Profile</span>
+              <span class="card-subtitle">Measured plasma samples across time</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="canvas-conc-time"></canvas>
+            </div>
+          </div>
+
+          <div class="card chart-card">
+            <div class="card-title-group">
+              <span class="card-title">🎯 Observed vs. Predicted Concentration</span>
+              <span class="card-subtitle">Out-of-fold generalization agreement</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="canvas-obs-pred"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card chart-card">
+            <div class="card-title-group">
+              <span class="card-title">📊 Sample Concentration Distribution</span>
+              <span class="card-subtitle">Histogram of plasma blood concentrations</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="canvas-conc-dist"></canvas>
+            </div>
+          </div>
+
+          <div class="card chart-card">
+            <div class="card-title-group">
+              <span class="card-title">🏆 Model Error Benchmark (MAE & RMSE)</span>
+              <span class="card-subtitle">Comparative evaluation across all model families</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="canvas-model-perf"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE B: DATASET EXPLORER ================= -->
+      <section id="view-dataset" class="page-section">
+        <!-- Upload & Quality Section -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title-group">
+              <span class="card-title">📤 Upload Clinical PK Dataset (CSV)</span>
+              <span class="card-subtitle">Support for Remifentanil NONMEM schemas</span>
+            </div>
+
+            <div id="drop-zone" class="card" style="border:2px dashed var(--border-highlight); text-align:center; padding:30px; cursor:pointer; background:var(--bg-card);">
+              <div style="font-size:32px; margin-bottom:8px;">📁</div>
+              <p style="font-weight:600; color:var(--text-main);">Drag & Drop CSV file here, or click to browse</p>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:4px;">Expected columns: ID, Subject, Time, conc, Rate, Amt, Age, Sex, Ht, Wt, BSA, LBM</p>
+              <input type="file" id="csv-file-input" accept=".csv" style="display:none;" />
+            </div>
+
+            <div id="upload-status" style="display:none; margin-top:12px; padding:10px 14px; border-radius:var(--radius-md);"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title-group">
+              <span class="card-title">🛡️ Data Quality & Schema Audit</span>
+              <button id="btn-download-csv" class="btn btn-sm btn-outline">⬇ Download Clean CSV</button>
+            </div>
+
+            <ul id="quality-checklist" style="list-style:none; display:flex; flex-direction:column; gap:8px;">
+              <!-- Populated dynamically -->
+            </ul>
+          </div>
+        </div>
+
+        <!-- Numeric Summary Statistics -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title-group">
+            <span class="card-title">🔢 Numeric Covariate Distributions & Summary Statistics</span>
+            <span class="card-subtitle">Quantiles, means, and dispersion across valid rows</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Feature</th>
+                  <th>Count</th>
+                  <th>Mean</th>
+                  <th>Std Dev</th>
+                  <th>Min</th>
+                  <th>25%</th>
+                  <th>Median (50%)</th>
+                  <th>75%</th>
+                  <th>Max</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-numeric-stats">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Data Preview Table -->
+        <div class="card">
+          <div class="card-title-group">
+            <span class="card-title">🔍 Paginated Dataset Preview</span>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <select id="select-subject-filter" class="select-field" style="max-width:220px;">
+                <option value="">All Subjects</option>
+              </select>
+              <button class="btn btn-sm btn-secondary" onclick="prevDatasetPage()">◀ Prev</button>
+              <span id="dataset-page-info" style="font-size:12px; color:var(--text-secondary); white-space:nowrap;">Page 1</span>
+              <button class="btn btn-sm btn-secondary" onclick="nextDatasetPage()">Next ▶</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead id="thead-data-preview">
+                <!-- Dynamically populated -->
+              </thead>
+              <tbody id="tbody-data-preview">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE C: TCI TRAJECTORY ================= -->
+      <section id="view-trajectory" class="page-section">
+        <div class="grid-3">
+          <!-- Patient Controls -->
+          <div class="card">
+            <div class="card-title-group">
+              <span class="card-title">👤 Patient Physiological Covariates</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Subject Preset (From Clinical Dataset)</label>
+              <select id="traj-select-subject" class="select-field">
+                <option value="">Custom Regimen & Patient</option>
+              </select>
+            </div>
+
+            <div class="grid-2" style="margin-bottom:0;">
+              <div class="form-group">
+                <label class="form-label">Age (years)</label>
+                <input type="number" id="traj-age" class="input-field" value="40" min="1" max="110" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Weight (kg)</label>
+                <input type="number" id="traj-weight" class="input-field" value="70" min="20" max="250" />
+              </div>
+            </div>
+
+            <div class="grid-2" style="margin-bottom:0;">
+              <div class="form-group">
+                <label class="form-label">Height (cm)</label>
+                <input type="number" id="traj-height" class="input-field" value="170" min="100" max="230" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sex</label>
+                <select id="traj-sex" class="select-field">
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dosing Regimen Editor -->
+          <div class="card" style="grid-column: span 2;">
+            <div class="card-title-group">
+              <span class="card-title">💉 Dosing Regimen (Infusions & Boluses)</span>
+              <div style="display:flex; gap:8px;">
+                <button type="button" id="btn-add-infusion" class="btn btn-sm btn-secondary">+ Add Infusion</button>
+                <button type="button" id="btn-add-bolus" class="btn btn-sm btn-secondary">+ Add Bolus</button>
+              </div>
+            </div>
+
+            <div style="max-height:150px; overflow-y:auto; margin-bottom:12px; display:flex; flex-direction:column; gap:6px;">
+              <div id="infusion-rows-container" style="display:flex; flex-direction:column; gap:6px;">
+                <!-- Initial Infusion -->
+                <div class="segment-row" style="display:flex; gap:8px; align-items:center;">
+                  <input type="number" class="input-field inf-start" value="0" step="0.5" min="0" placeholder="Start" style="width:70px;" />
+                  <span>to</span>
+                  <input type="number" class="input-field inf-end" value="20" step="0.5" min="0" placeholder="End" style="width:70px;" />
+                  <span>min at</span>
+                  <input type="number" class="input-field inf-rate" value="70" step="1" min="0" placeholder="Rate" style="width:90px;" />
+                  <span style="font-size:12px; color:var(--text-muted);">ug/min</span>
+                </div>
+              </div>
+              <div id="bolus-rows-container" style="display:flex; flex-direction:column; gap:6px;">
+                <!-- Bolus rows added dynamically -->
+              </div>
+            </div>
+
+            <div class="grid-2" style="align-items:flex-end; margin-bottom:0;">
+              <div class="grid-2" style="margin-bottom:0;">
+                <div class="form-group">
+                  <label class="form-label">Duration (min)</label>
+                  <input type="number" id="traj-duration" class="input-field" value="90" min="10" max="360" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Inference Model</label>
+                  <select id="traj-select-model" class="select-field">
+                    <!-- Populated dynamically -->
+                  </select>
+                </div>
+              </div>
+              <button id="btn-run-trajectory" class="btn btn-primary" style="height:40px; margin-bottom:12px;">⚡ Simulate Trajectory</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trajectory Chart Card -->
+        <div class="card chart-card" style="height:480px; margin-bottom:20px;">
+          <div class="card-title-group">
+            <span class="card-title">📈 Concentration-Time Profile & 95% Conformal Prediction Intervals</span>
+            <div style="display:flex; gap:16px; font-size:12px;">
+              <span style="color:#06b6d4;">■ ML Grey-Box Prediction</span>
+              <span style="color:#a855f7;">- - Minto Baseline</span>
+              <span style="color:#f59e0b;">··· Effect-Site Ce</span>
+              <span style="color:#10b981;">● Patient Samples</span>
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="canvas-trajectory"></canvas>
+          </div>
+        </div>
+
+        <!-- Simulation Summary Metrics -->
+        <div class="grid-4">
+          <div class="card stat-card">
+            <span class="stat-label">Peak Plasma (Cp)</span>
+            <div class="stat-value cyan" id="traj-stat-peak-cp">—</div>
+            <span class="stat-desc">Maximum central concentration</span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Peak Effect-Site (Ce)</span>
+            <div class="stat-value amber" id="traj-stat-peak-ce">—</div>
+            <span class="stat-desc">Pharmacodynamic effect peak</span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Central Volume (V1)</span>
+            <div class="stat-value purple" id="traj-stat-v1">—</div>
+            <span class="stat-desc">Calculated Minto volume</span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Systemic Clearance (Cl1)</span>
+            <div class="stat-value emerald" id="traj-stat-cl1">—</div>
+            <span class="stat-desc">Metabolic organ elimination rate</span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Distribution Half-Life (t½α)</span>
+            <div class="stat-value" id="traj-stat-thalf">—</div>
+            <span class="stat-desc">Rapid tri-exponential decay</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE D: MODEL LEADERBOARD ================= -->
+      <section id="view-leaderboard" class="page-section">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title-group">
+            <div>
+              <span class="card-title">🏆 Pharmacokinetic ML Model Benchmark Leaderboard</span>
+              <p class="card-subtitle">8 Model Families evaluated on held-out subjects using subject-wise GroupShuffleSplit</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div id="train-status-indicator" style="display:none; font-size:12px;"></div>
+              <button id="btn-retrain-models" class="btn btn-primary">⚡ Retrain Models (GroupShuffleSplit)</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table" id="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th class="sortable" data-col="model">Model Family ⬍</th>
+                  <th class="sortable" data-col="MAE">MAE (ng/mL) ⬍</th>
+                  <th class="sortable" data-col="RMSE">RMSE (ng/mL) ⬍</th>
+                  <th class="sortable" data-col="R2">R² Score ⬍</th>
+                  <th class="sortable" data-col="MDPE">Varvel MDPE% ⬍</th>
+                  <th class="sortable" data-col="MDAPE">Varvel MDAPE% ⬍</th>
+                  <th class="sortable" data-col="WAPE">WAPE% ⬍</th>
+                  <th class="sortable" data-col="accuracy_10">±10% Acc ⬍</th>
+                  <th class="sortable" data-col="accuracy_20">±20% Acc ⬍</th>
+                  <th class="sortable" data-col="coverage_95">95% Coverage ⬍</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-leaderboard">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE E: VALIDATION AND UNCERTAINTY ================= -->
+      <section id="view-validation" class="page-section">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title-group">
+            <div>
+              <span class="card-title">🛡️ Rigorous Subject-Wise Validation Protocol</span>
+              <p class="card-subtitle">GroupShuffleSplit cross-subject evaluation guarantees zero observation leakage across patient measurements</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <label style="font-size:12px; color:var(--text-secondary);">Select Model:</label>
+              <select id="select-val-model" class="select-field" style="width:190px;">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-4" style="margin-bottom:0;">
+            <div class="card stat-card" style="background:var(--bg-card);">
+              <span class="stat-label">Conformal Coverage (95% Target)</span>
+              <div class="stat-value cyan" id="val-stat-coverage">—</div>
+              <span class="stat-desc">Empirical coverage on held-out subjects</span>
+            </div>
+
+            <div class="card stat-card" style="background:var(--bg-card);">
+              <span class="stat-label">Conformal Non-Conformity</span>
+              <div class="stat-value" id="val-stat-qscore">—</div>
+              <span class="stat-desc">Calibrated log-quantile threshold</span>
+            </div>
+
+            <div class="card stat-card" style="background:var(--bg-card);">
+              <span class="stat-label">Out-of-Sample MAE</span>
+              <div class="stat-value emerald" id="val-stat-mae">—</div>
+              <span class="stat-desc">Mean absolute deviation</span>
+            </div>
+
+            <div class="card stat-card" style="background:var(--bg-card);">
+              <span class="stat-label">Varvel Inaccuracy (MDAPE)</span>
+              <div class="stat-value amber" id="val-stat-mdape">—</div>
+              <span class="stat-desc">Median percentage error</span>
+            </div>
+
+            <div class="card stat-card" style="background:var(--bg-card);">
+              <span class="stat-label">Coefficient of Determination</span>
+              <div class="stat-value purple" id="val-stat-r2">—</div>
+              <span class="stat-desc">Out-of-sample R² goodness of fit</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card chart-card">
+            <div class="card-title-group">
+              <span class="card-title">🎯 Observed vs. Predicted with ±20% Funnel</span>
+              <span class="card-subtitle">Held-out subject test observations</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="canvas-val-obs-pred"></canvas>
+            </div>
+          </div>
+
+          <div class="card chart-card">
+            <div class="card-title-group">
+              <span class="card-title">⏱️ Residuals vs. Time (Infusion vs. Washout)</span>
+              <span class="card-subtitle">Phase-separated error analysis</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="canvas-val-res-time"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card chart-card">
+            <div class="card-title-group">
+              <span class="card-title">📊 Residual Error Distribution</span>
+              <span class="card-subtitle">Frequency of residual deviations (y - y_hat)</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="canvas-val-err-dist"></canvas>
+            </div>
+          </div>
+
+          <div class="card chart-card">
+            <div class="card-title-group">
+              <span class="card-title">👥 Per-Subject Generalization Breakdown</span>
+              <span class="card-subtitle">Subject-by-subject MAE on held-out test cohort</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="canvas-val-subject-perf"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAGE F: GREY-BOX PK MODEL ================= -->
+      <section id="view-greybox" class="page-section">
+        <div class="grid-2" style="margin-bottom:20px;">
+          <!-- Mathematical Derivation -->
+          <div class="card">
+            <div class="card-title-group">
+              <span class="card-title">📐 The 3-Compartment Mammillary ODE System</span>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:12px; line-height:1.7; background:var(--bg-card); padding:14px; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+              dA1/dt = R(t) - (k10 + k12 + k13)*A1 + k21*A2 + k31*A3<br>
+              dA2/dt = k12*A1 - k21*A2<br>
+              dA3/dt = k13*A1 - k31*A3<br>
+              dCe/dt = ke0 * (Cp - Ce)<br><br>
+              <span style="color:var(--cyan-primary);">Cp(t) = A1(t) / V1</span> &nbsp;|&nbsp; <span style="color:var(--amber-primary);">Ce(t) = Effect-Site</span><br>
+              <span style="color:var(--purple-minto);">Multiplicative Correction:</span> Cp_final = Cp_minto * exp(lambda * r_hat)
+            </div>
+          </div>
+
+          <!-- Parameter Sliders -->
+          <div class="card">
+            <div class="card-title-group">
+              <span class="card-title">🎛️ Live Physiological Covariate Controls</span>
+            </div>
+
+            <div class="grid-2" style="margin-bottom:6px;">
+              <div class="form-group">
+                <label class="form-label">Age: <span id="gb-age-val" class="pill-badge">40</span> yrs</label>
+                <input type="range" id="gb-age" min="18" max="90" value="40" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Weight: <span id="gb-weight-val" class="pill-badge">70</span> kg</label>
+                <input type="range" id="gb-weight" min="40" max="140" value="70" />
+              </div>
+            </div>
+
+            <div class="grid-2" style="margin-bottom:6px;">
+              <div class="form-group">
+                <label class="form-label">Height: <span id="gb-height-val" class="pill-badge">170</span> cm</label>
+                <input type="range" id="gb-height" min="140" max="205" value="170" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sex</label>
+                <select id="gb-sex" class="select-field">
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid-2" style="margin-bottom:0;">
+              <div class="form-group">
+                <label class="form-label">Infusion Rate: <span id="gb-rate-val" class="pill-badge">70</span> ug/min</label>
+                <input type="range" id="gb-rate" min="0" max="200" value="70" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Initial Bolus: <span id="gb-bolus-val" class="pill-badge">50</span> ug</label>
+                <input type="range" id="gb-bolus" min="0" max="150" value="50" />
+              </div>
+            </div>
+
+            <div class="grid-2" style="margin-top:6px; margin-bottom:0;">
+              <div class="form-group">
+                <label class="form-label">LBM Formula</label>
+                <select id="gb-lbm-formula" class="select-field">
+                  <option value="james">James (1976) - Minto Original</option>
+                  <option value="janmahasatian">Janmahasatian (2005) - FFM</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Duration: <span id="gb-duration-val" class="pill-badge">60</span> min</label>
+                <input type="range" id="gb-duration" min="15" max="180" value="60" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live ODE Chart -->
+        <div class="card chart-card" style="height:420px; margin-bottom:20px;">
+          <div class="card-title-group">
+            <span class="card-title">⚡ Multi-Compartment Runge-Kutta 4th Order (RK4) Simulation</span>
+            <span class="card-subtitle">Real-time dynamic integration of A1, A2, A3, Cp, and Ce</span>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="canvas-greybox-ode"></canvas>
+          </div>
+        </div>
+
+        <!-- Calculated Physical Parameters Grid -->
+        <div class="grid-4">
+          <div class="card stat-card">
+            <span class="stat-label">Volumes (V1, V2, V3)</span>
+            <div style="font-size:14px; font-weight:700; margin-top:4px;">
+              V1: <span id="gb-param-v1" style="color:var(--cyan-primary);">—</span><br>
+              V2: <span id="gb-param-v2" style="color:var(--emerald-primary);">—</span><br>
+              V3: <span id="gb-param-v3" style="color:var(--text-secondary);">—</span>
+            </div>
+            <span class="stat-desc">Vss: <span id="gb-param-vss">—</span></span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Clearances</span>
+            <div style="font-size:14px; font-weight:700; margin-top:4px;">
+              Cl1: <span id="gb-param-cl1" style="color:var(--cyan-primary);">—</span><br>
+              Cl2: <span id="gb-param-cl2" style="color:var(--emerald-primary);">—</span><br>
+              Cl3: <span id="gb-param-cl3" style="color:var(--text-secondary);">—</span>
+            </div>
+            <span class="stat-desc">ke0: <span id="gb-param-ke0">—</span></span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Body Composition</span>
+            <div style="font-size:14px; font-weight:700; margin-top:4px;">
+              LBM: <span id="gb-param-lbm" style="color:var(--cyan-primary);">—</span><br>
+              BMI: <span id="gb-param-bmi" style="color:var(--purple-minto);">—</span><br>
+              BSA: <span id="gb-param-bsa" style="color:var(--amber-primary);">—</span>
+            </div>
+            <span class="stat-desc">Calculated biometric indices</span>
+          </div>
+
+          <div class="card stat-card">
+            <span class="stat-label">Tri-Exponential Half-Lives</span>
+            <div style="font-size:14px; font-weight:700; margin-top:4px;">
+              t½α: <span id="gb-param-t-alpha" style="color:var(--cyan-primary);">—</span><br>
+              t½β: <span id="gb-param-t-beta" style="color:var(--emerald-primary);">—</span><br>
+              t½γ: <span id="gb-param-t-gamma" style="color:var(--amber-primary);">—</span>
+            </div>
+            <span class="stat-desc">Rapid, distribution & slow decay</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= Mobile Bottom Navigation Bar ================= -->
+  <nav id="mobile-bottom-nav">
+    <a class="mobile-nav-item active" data-view="view-overview">
+      <span class="m-icon">📊</span>
+      <span class="m-label">Overview</span>
+    </a>
+    <a class="mobile-nav-item" data-view="view-dataset">
+      <span class="m-icon">📁</span>
+      <span class="m-label">Dataset</span>
+    </a>
+    <a class="mobile-nav-item" data-view="view-trajectory">
+      <span class="m-icon">📈</span>
+      <span class="m-label">Trajectory</span>
+    </a>
+    <a class="mobile-nav-item" data-view="view-leaderboard">
+      <span class="m-icon">🏆</span>
+      <span class="m-label">Leaderboard</span>
+    </a>
+    <a class="mobile-nav-item" data-view="view-greybox">
+      <span class="m-icon">⚙️</span>
+      <span class="m-label">Grey-Box</span>
+    </a>
+    <a class="mobile-nav-item" data-view="view-validation">
+      <span class="m-icon">🛡️</span>
+      <span class="m-label">Validation</span>
+    </a>
+  </nav>
+
+  <!-- Model Detail Inspection Modal -->
+  <div id="modal-model-detail" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title" style="font-size:16px;">Model Diagnostics</h3>
+        <button id="modal-detail-close" class="modal-close">✕</button>
+      </div>
+      <div id="modal-body">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/dataset.js"></script>
+  <script src="/static/js/trajectory.js"></script>
+  <script src="/static/js/leaderboard.js"></script>
+  <script src="/static/js/validation.js"></script>
+  <script src="/static/js/greybox.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
